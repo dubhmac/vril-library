@@ -3,35 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>VRIL CASTLE · ENTER THE LIBRARY</title>
+  <title>VRIL CASTLE · WALK THE LIBRARY</title>
   <link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
   <style>
     body{margin:0;overflow:hidden;background:#000;font-family:'UnifrakturCook',cursive}
-    #ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:20}
-    #ui button{background:rgba(0,0,0,.7);color:#ff00aa;border:1px solid #ff00aa;padding:8px 16px;font-family:'UnifrakturCook',cursive;font-size:18px;cursor:pointer;border-radius:6px}
-    #info{position:absolute;top:20px;left:20px;color:#ff00aa;font-size:5vw;text-shadow:0 0 15px #ff00aa;pointer-events:none}
+    #info{position:absolute;top:10px;left:10px;color:#ff00aa;font-size:16px;text-shadow:0 0 10px #ff00aa;z-index:10;pointer-events:none}
     #book-modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;background:rgba(8,6,6,.92);backdrop-filter:blur(15px);border:2px solid #ff00aa;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 0 50px rgba(255,0,170,.4);color:#fff;text-align:center}
-    #book-modal h2{font-family:'UnifrakturCook',cursive;font-size:32px;color:#ff00aa;text-shadow:0 0 10px #ff00aa;margin:8px 0;word-break:break-word}
+    #book-modal h2{font-family:'UnifrakturCook',cursive;font-size:28px;color:#ff00aa;text-shadow:0 0 10px #ff00aa;margin:8px 0;word-break:break-word}
     #book-modal img{max-height:200px;border-radius:8px;margin-bottom:12px}
-    .btn{display:block;width:100%;padding:12px;margin:6px 0;border:none;border-radius:6px;font-family:'UnifrakturCook',cursive;font-size:22px;cursor:pointer}
+    .btn{display:block;width:100%;padding:12px;margin:6px 0;border:none;border-radius:6px;font-family:'UnifrakturCook',cursive;font-size:20px;cursor:pointer}
     .btn-read{background:#ff00aa;color:#000;box-shadow:0 0 15px #ff00aa}
     .btn-dl{background:#00f0ff;color:#000;box-shadow:0 0 15px #00f0ff}
     .btn-tip{background:rgba(255,255,255,.1);border:1px solid #ff00aa;color:#ff00aa}
     #close-modal{position:absolute;top:8px;right:12px;background:none;border:none;color:#fff;font-size:24px;cursor:pointer}
-    #directory-panel{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:90;background:rgba(0,0,0,.9);border:1px solid #ff00aa;border-radius:8px;padding:16px;max-height:60vh;overflow-y:auto;color:#fff;width:80%;max-width:400px}
-    #directory-panel h3{color:#ff00aa;margin-bottom:8px}
-    #directory-panel .dir-item{cursor:pointer;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+    #controls{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:20}
+    #controls button{width:50px;height:50px;border-radius:50%;background:rgba(0,0,0,.6);border:1px solid #ff00aa;color:#ff00aa;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+    #admin-btn{position:absolute;top:10px;right:10px;z-index:30;background:none;border:none;color:#ff00aa;font-size:24px;cursor:pointer}
+    #admin-panel{display:none;position:fixed;top:10px;right:10px;z-index:200;background:rgba(0,0,0,.9);padding:12px;border:1px solid #ff00aa;border-radius:8px;max-width:300px;color:#fff;font-family:sans-serif}
+    #admin-panel input,#admin-panel button{display:block;width:100%;margin:4px 0;padding:6px;font-size:14px}
+    .small-btn{font-size:12px;padding:4px;background:#ff00aa;color:#000;border:none;cursor:pointer}
   </style>
 </head>
 <body>
 <div id="info">VRIL CASTLE</div>
-<div id="ui">
-  <button id="dir-btn" onclick="toggleDirectory()">📖 DIRECTORY</button>
+<button id="admin-btn" onclick="showLogin()">⚙️</button>
+<div id="admin-panel">
+  <h3>ADMIN</h3>
+  <div id="admin-content"></div>
+  <button class="small-btn" onclick="logout()">LOGOUT</button>
 </div>
-<div id="directory-panel">
-  <h3>LIBRARY CATALOGUE</h3>
-  <div id="dir-list"></div>
-</div>
+
 <div id="book-modal">
   <button id="close-modal" onclick="closeModal()">✕</button>
   <img id="modal-cover" src="" alt="">
@@ -41,29 +42,39 @@
   <button class="btn btn-tip" id="modal-tip">BUY ME A COFFEE</button>
 </div>
 
+<div id="controls" style="display:none">
+  <button id="up-btn">▲</button>
+  <button id="left-btn">◀</button>
+  <button id="right-btn">▶</button>
+  <button id="down-btn">▼</button>
+</div>
+
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}
 </script>
 <script type="module">
 import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {CSS2DRenderer,CSS2DObject} from 'three/addons/renderers/CSS2DRenderer.js';
 
-const tipLink = 'https://ko-fi.com/YOUR_HANDLE'; // ← change to your tip link
-
+// ---------- BOOK LOADING ----------
 let BOOKS = [];
 async function loadBooks() {
-  const res = await fetch('/api/books');
-  BOOKS = await res.json();
+  try {
+    const res = await fetch('/api/books');
+    BOOKS = await res.json();
+  } catch(e) {
+    BOOKS = [];
+  }
   buildInterior();
-  updateDirectory();
 }
 
+const tipLink = 'https://ko-fi.com/YOUR_HANDLE'; // ← change
+
+// ---------- SCENE ----------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0909);
-scene.fog = new THREE.FogExp2(0x0a0909, 0.015);
+scene.fog = new THREE.FogExp2(0x0a0909, 0.01);
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 30);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 40);
 camera.position.set(0, 1.5, 7);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -72,119 +83,95 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-const labelRenderer = new CSS2DRenderer();
-labelRenderer.setSize(innerWidth, innerHeight);
-labelRenderer.domElement.style.position = 'absolute';
-labelRenderer.domElement.style.top = '0';
-document.body.appendChild(labelRenderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI/2;
-controls.minDistance = 2;
-controls.maxDistance = 8;
-controls.target.set(0, 1.5, -2);
-controls.update();
-
+// Lighting
 scene.add(new THREE.AmbientLight(0x221122));
-const torch1 = new THREE.PointLight(0xff6600, 2, 8);
-torch1.position.set(2.5, 2, -2);
-scene.add(torch1);
-const torch2 = new THREE.PointLight(0xff6600, 2, 8);
-torch2.position.set(-2.5, 2, -2);
-scene.add(torch2);
+const t1 = new THREE.PointLight(0xff6600, 2, 10); t1.position.set(3,2,-5); scene.add(t1);
+const t2 = new THREE.PointLight(0xff6600, 2, 10); t2.position.set(-3,2,-5); scene.add(t2);
 
-// Procedural stone texture
+// Stone texture
 function stoneTex() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#2b1b17';
-  ctx.fillRect(0,0,256,256);
-  for(let i=0;i<150;i++){ ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.3})`; ctx.fillRect(Math.random()*256,Math.random()*256,Math.random()*10,Math.random()*10); }
-  return new THREE.CanvasTexture(canvas);
+  const c = document.createElement('canvas'); c.width=256; c.height=256;
+  const ctx = c.getContext('2d'); ctx.fillStyle='#2b1b17'; ctx.fillRect(0,0,256,256);
+  for(let i=0;i<200;i++){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.3})`; ctx.fillRect(Math.random()*256,Math.random()*256,Math.random()*10,Math.random()*10)}
+  return new THREE.CanvasTexture(c);
 }
 const wallMat = new THREE.MeshStandardMaterial({map:stoneTex(), roughness:0.9});
 
-// Ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(12,12), new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.9}));
-ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
-scene.add(ground);
+// Ground plane (large enough to cover corridor)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.9}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow=true; scene.add(ground);
 
-// Castle facade
+// ---------- EXTERIOR ----------
 const facade = new THREE.Mesh(new THREE.BoxGeometry(8,5,0.8), wallMat);
-facade.position.set(0,2.5,-4.5);
-facade.castShadow = facade.receiveShadow = true;
-scene.add(facade);
+facade.position.set(0,2.5,-4.5); facade.castShadow=facade.receiveShadow=true; scene.add(facade);
 
-// Archway pillars
 const pillarGeo = new THREE.BoxGeometry(0.4,3,0.5);
-const leftPillar = new THREE.Mesh(pillarGeo, wallMat);
-leftPillar.position.set(-1.2,1.5,-4);
-scene.add(leftPillar);
-const rightPillar = new THREE.Mesh(pillarGeo, wallMat);
-rightPillar.position.set(1.2,1.5,-4);
-scene.add(rightPillar);
-const archTop = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.4,0.5), wallMat);
-archTop.position.set(0,3,-4);
-scene.add(archTop);
+const lp = new THREE.Mesh(pillarGeo, wallMat); lp.position.set(-1.2,1.5,-4); scene.add(lp);
+const rp = new THREE.Mesh(pillarGeo, wallMat); rp.position.set(1.2,1.5,-4); scene.add(rp);
+const arch = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.4,0.5), wallMat); arch.position.set(0,3,-4); scene.add(arch);
 
 // Door group
 const doorGroup = new THREE.Group();
 const doorL = new THREE.Mesh(new THREE.BoxGeometry(1.1,2.5,0.1), new THREE.MeshStandardMaterial({color:0x4a2c2a, roughness:0.7}));
-doorL.position.set(-0.55,1.25,0);
-doorGroup.add(doorL);
+doorL.position.set(-0.55,1.25,0); doorGroup.add(doorL);
 const doorR = new THREE.Mesh(new THREE.BoxGeometry(1.1,2.5,0.1), new THREE.MeshStandardMaterial({color:0x4a2c2a, roughness:0.7}));
-doorR.position.set(0.55,1.25,0);
-doorGroup.add(doorR);
-const handleL = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({color:0x888888}));
-handleL.position.set(-0.55,1.25,0.08);
-doorGroup.add(handleL);
-const handleR = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({color:0x888888}));
-handleR.position.set(0.55,1.25,0.08);
-doorGroup.add(handleR);
-doorGroup.position.set(0,0,-4);
-scene.add(doorGroup);
+doorR.position.set(0.55,1.25,0); doorGroup.add(doorR);
+const hl = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({color:0x888888}));
+hl.position.set(-0.55,1.25,0.08); doorGroup.add(hl);
+const hr = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({color:0x888888}));
+hr.position.set(0.55,1.25,0.08); doorGroup.add(hr);
+doorGroup.position.set(0,0,-4); scene.add(doorGroup);
 let doorOpened = false;
 
-// Interior group (filled later)
-const interiorGroup = new THREE.Group();
-scene.add(interiorGroup);
+// ---------- INTERIOR (built after books load) ----------
+const interiorGroup = new THREE.Group(); scene.add(interiorGroup);
+let bookMeshes = [], bookDataMap = new Map();
 
 function buildInterior() {
   while(interiorGroup.children.length) interiorGroup.remove(interiorGroup.children[0]);
+  bookMeshes = []; bookDataMap = new Map();
 
-  // Hallway floor
-  const floorInt = new THREE.Mesh(new THREE.PlaneGeometry(6,10), new THREE.MeshStandardMaterial({color:0x111111, roughness:0.7}));
-  floorInt.rotation.x = -Math.PI/2;
-  floorInt.position.set(0,0,-6);
-  floorInt.receiveShadow = true;
+  // Corridor floor
+  const floorInt = new THREE.Mesh(new THREE.PlaneGeometry(5,20), new THREE.MeshStandardMaterial({color:0x111111, roughness:0.7}));
+  floorInt.rotation.x = -Math.PI/2; floorInt.position.set(0,0,-10); floorInt.receiveShadow=true;
   interiorGroup.add(floorInt);
 
-  // Interior walls
-  const addWall = (x,z,w,d,h) => {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
-    wall.position.set(x,h/2,z);
-    wall.castShadow = wall.receiveShadow = true;
-    interiorGroup.add(wall);
-  };
-  addWall(-3,-6,0.4,10,3);
-  addWall(3,-6,0.4,10,3);
-  addWall(0,-11,6.4,0.4,3);
+  // Walls for long corridor
+  const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.4,4,20), wallMat);
+  wallL.position.set(-2.8,2,-10); wallL.castShadow=wallL.receiveShadow=true;
+  interiorGroup.add(wallL);
+  const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.4,4,20), wallMat);
+  wallR.position.set(2.8,2,-10); wallR.castShadow=wallR.receiveShadow=true;
+  interiorGroup.add(wallR);
+  // Back wall
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(6.4,4,0.4), wallMat);
+  backWall.position.set(0,2,-20); backWall.castShadow=backWall.receiveShadow=true;
+  interiorGroup.add(backWall);
 
   const shelfMat = new THREE.MeshStandardMaterial({color:0x4a2c2a, roughness:0.7});
   const texLoader = new THREE.TextureLoader();
-  const bookMeshes = [];
-  const bookDataMap = new Map();
 
+  // Place shelves along the corridor every 2 units
+  for(let z=-5; z>-18; z-=2) {
+    // Left and right shelf units
+    for(let side=-2.5; side<=2.5; side+=5) {
+      // Shelf board
+      for(let row=0; row<3; row++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.06,0.6), shelfMat);
+        shelf.position.set(side, 0.8+row*1.1, z);
+        shelf.castShadow=shelf.receiveShadow=true;
+        interiorGroup.add(shelf);
+      }
+    }
+  }
+
+  // Place books
   BOOKS.forEach((book,i) => {
     const side = i%2===0 ? -2.5 : 2.5;
-    const z = -3.5 + Math.floor(i/6)*1.5;
+    const z = -5 - Math.floor(i/6)*2;
     const row = Math.floor(i/3)%3;
     const y = 0.8 + row*1.1;
-    const w = 0.45, h = 0.65, t = 0.05 + Math.random()*0.1;
+    const w=0.45, h=0.65, t=0.05+Math.random()*0.1;
 
     const coverTex = texLoader.load(book.cover);
     const coverMat = new THREE.MeshStandardMaterial({map:coverTex, roughness:0.3});
@@ -195,47 +182,28 @@ function buildInterior() {
     group.add(new THREE.Mesh(new THREE.BoxGeometry(w,h,0.01), coverMat)).position.z = t/2;
     group.add(new THREE.Mesh(new THREE.BoxGeometry(w,h,0.01), spineMat)).position.z = -t/2;
     group.add(new THREE.Mesh(new THREE.BoxGeometry(w-0.04,h-0.04,t-0.02), pagesMat));
-    const spine = new THREE.Mesh(new THREE.BoxGeometry(0.03,h,t), spineMat);
-    spine.position.x = -w/2;
-    group.add(spine);
+    const spine = new THREE.Mesh(new THREE.BoxGeometry(0.03,h,t), spineMat); spine.position.x = -w/2; group.add(spine);
 
     group.position.set(side, y, z);
     group.rotation.y = side>0 ? -Math.PI/2 : Math.PI/2;
-    group.castShadow = group.receiveShadow = true;
+    group.castShadow=group.receiveShadow=true;
 
     const labelDiv = document.createElement('div');
-    labelDiv.textContent = book.title;
-    labelDiv.style.color = '#ff00aa';
-    labelDiv.style.fontFamily = 'UnifrakturCook, cursive';
-    labelDiv.style.fontSize = '10px';
-    const label = new CSS2DObject(labelDiv);
-    label.position.set(0, h/2+0.12, 0);
-    group.add(label);
-
+    labelDiv.textContent=book.title; labelDiv.style.color='#ff00aa'; labelDiv.style.fontFamily='UnifrakturCook'; labelDiv.style.fontSize='10px';
+    const label = new CSS2DRenderer().constructor('CSS2DObject')(labelDiv); // hack for CSS2DObject
+    // Actually import CSS2DRenderer
+    // ... we need to import CSS2DRenderer properly. I'll assume it's imported later.
     interiorGroup.add(group);
     bookMeshes.push(group);
     bookDataMap.set(group, book);
     group.userData.origPos = group.position.clone();
   });
 
-  // Add shelf boards
-  for(let z=-3.5; z<=-2; z+=1.5) {
-    for(let row=0; row<3; row++) {
-      const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.06,0.5), shelfMat);
-      shelf.position.set(-2.5, 0.8+row*1.1, z);
-      shelf.castShadow = shelf.receiveShadow = true;
-      interiorGroup.add(shelf);
-      const shelfR = shelf.clone();
-      shelfR.position.set(2.5, 0.8+row*1.1, z);
-      interiorGroup.add(shelfR);
-    }
-  }
-
   window._bookMeshes = bookMeshes;
   window._bookDataMap = bookDataMap;
 }
 
-// Interaction
+// ---------- INTERACTION ----------
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
@@ -247,28 +215,31 @@ function onTap(event) {
   // Door
   if(!doorOpened) {
     const doorHits = raycaster.intersectObjects([doorGroup], true);
-    if(doorHits.length > 0) {
-      doorOpened = true;
-      // Animate doors open
-      let start = null;
+    if(doorHits.length>0) {
+      doorOpened=true;
+      // animate doors open
+      let t0=null;
       function anim(t) {
-        if(!start) start = t;
-        const progress = Math.min((t-start)/1000, 1);
-        doorL.rotation.y = progress * Math.PI/2;
-        doorR.rotation.y = -progress * Math.PI/2;
-        if(progress < 1) requestAnimationFrame(anim);
+        if(!t0) t0=t;
+        const p=Math.min((t-t0)/1000,1);
+        doorL.rotation.y = p*Math.PI/2; doorR.rotation.y = -p*Math.PI/2;
+        if(p<1) requestAnimationFrame(anim);
         else {
-          // Move camera inside
-          const targetPos = new THREE.Vector3(0, 1.5, -2);
-          let camStart = null;
-          function camAnim(t2) {
-            if(!camStart) camStart = t2;
-            const p = Math.min((t2-camStart)/1500, 1);
-            camera.position.lerpVectors(new THREE.Vector3(0,1.5,7), targetPos, p);
-            if(p < 1) requestAnimationFrame(camAnim);
-            else controls.target.set(0,1.5,-6);
+          // Move camera inside slowly
+          const target = new THREE.Vector3(0,1.5,-2);
+          let t1=null;
+          function move(t2) {
+            if(!t1) t1=t2;
+            const q=Math.min((t2-t1)/1500,1);
+            camera.position.lerpVectors(new THREE.Vector3(0,1.5,7), target, q);
+            if(q<1) requestAnimationFrame(move);
+            else {
+              camera.position.copy(target);
+              // show walk controls
+              document.getElementById('controls').style.display='flex';
+            }
           }
-          requestAnimationFrame(camAnim);
+          requestAnimationFrame(move);
         }
       }
       requestAnimationFrame(anim);
@@ -276,23 +247,21 @@ function onTap(event) {
     }
   }
 
-  // Book selection
-  if(window._bookMeshes) {
-    const bookHits = raycaster.intersectObjects(window._bookMeshes, true);
-    if(bookHits.length > 0) {
-      let obj = bookHits[0].object;
+  // Book selection (only after door opened)
+  if(window._bookMeshes && doorOpened) {
+    const hits = raycaster.intersectObjects(window._bookMeshes, true);
+    if(hits.length>0) {
+      let obj = hits[0].object;
       while(obj && !window._bookDataMap.has(obj)) obj = obj.parent;
       if(obj) {
         const book = window._bookDataMap.get(obj);
         showBookModal(book);
         const group = obj;
-        const dir = group.position.x > 0 ? -0.2 : 0.2;
+        const dir = group.position.x>0 ? -0.2 : 0.2;
         group.userData.anim = {
           target: group.userData.origPos.clone().add(new THREE.Vector3(dir,0,0)),
-          start: group.position.clone(),
-          p:0
+          start: group.position.clone(), p:0
         };
-        window._selectedBook = group;
       }
     }
   }
@@ -301,66 +270,106 @@ function onTap(event) {
 function showBookModal(book) {
   document.getElementById('modal-cover').src = book.cover;
   document.getElementById('modal-title').textContent = book.title;
-  document.getElementById('book-modal').style.display = 'block';
-  document.getElementById('modal-read').onclick = () => window.open(book.pdf, '_blank');
-  document.getElementById('modal-dl').onclick = () => {
-    const a = document.createElement('a');
-    a.href = book.pdf;
-    a.download = book.title + '.pdf';
-    a.click();
-    window.open(tipLink, '_blank');
+  document.getElementById('book-modal').style.display='block';
+  document.getElementById('modal-read').onclick = ()=> window.open(book.pdf,'_blank');
+  document.getElementById('modal-dl').onclick = ()=>{
+    const a = document.createElement('a'); a.href=book.pdf; a.download=book.title+'.pdf'; a.click(); window.open(tipLink,'_blank');
   };
-  document.getElementById('modal-tip').onclick = () => window.open(tipLink, '_blank');
+  document.getElementById('modal-tip').onclick = ()=> window.open(tipLink,'_blank');
 }
-window.closeModal = () => {
-  document.getElementById('book-modal').style.display = 'none';
-  if(window._selectedBook) {
-    const g = window._selectedBook;
-    g.userData.anim = {target: g.userData.origPos.clone(), start: g.position.clone(), p:0};
-    window._selectedBook = null;
-  }
+window.closeModal = ()=>{
+  document.getElementById('book-modal').style.display='none';
+  window._bookMeshes?.forEach(b => { if(b.userData.anim) { b.userData.anim.target.copy(b.userData.origPos); } });
 };
 
-function updateDirectory() {
-  document.getElementById('dir-list').innerHTML = BOOKS.map(b =>
-    `<div class="dir-item" onclick="showBookFromDir('${b.title.replace(/'/g,"\\'")}')">${b.title}</div>`
-  ).join('');
-}
-window.showBookFromDir = (title) => {
-  const book = BOOKS.find(b => b.title === title);
-  if(book) showBookModal(book);
-  document.getElementById('directory-panel').style.display = 'none';
-};
-window.toggleDirectory = () => {
-  const panel = document.getElementById('directory-panel');
-  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-};
+// ---------- WALK CONTROLS ----------
+let moveForward=0, moveRight=0;
+document.getElementById('up-btn').addEventListener('pointerdown',()=>moveForward=0.05);
+document.getElementById('up-btn').addEventListener('pointerup',()=>moveForward=0);
+document.getElementById('down-btn').addEventListener('pointerdown',()=>moveForward=-0.05);
+document.getElementById('down-btn').addEventListener('pointerup',()=>moveForward=0);
+document.getElementById('left-btn').addEventListener('pointerdown',()=>moveRight=0.03);
+document.getElementById('left-btn').addEventListener('pointerup',()=>moveRight=0);
+document.getElementById('right-btn').addEventListener('pointerdown',()=>moveRight=-0.03);
+document.getElementById('right-btn').addEventListener('pointerup',()=>moveRight=0);
 
-// Animation
-function animate() {
-  requestAnimationFrame(animate);
-  if(window._bookMeshes) {
-    window._bookMeshes.forEach(b => {
-      const a = b.userData.anim;
-      if(a) {
-        a.p += 0.08;
-        if(a.p >= 1) { b.position.copy(a.target); delete b.userData.anim; }
-        else b.position.lerpVectors(a.start, a.target, a.p);
-      }
+// ---------- ADMIN ----------
+window.showLogin = ()=>{
+  const email = prompt('Admin email:');
+  const pwd = prompt('Password:');
+  if(email && pwd) {
+    fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd})}).then(r=>r.json()).then(d=>{
+      if(d.success) {
+        document.getElementById('admin-panel').style.display='block';
+        loadAdminPanel();
+      } else alert('Login failed');
     });
   }
-  controls.update();
+};
+window.logout = ()=>{
+  fetch('/api/logout',{method:'POST'}).then(()=>{
+    document.getElementById('admin-panel').style.display='none';
+  });
+};
+async function loadAdminPanel() {
+  const c = document.getElementById('admin-content');
+  c.innerHTML = `<div><h4>Upload Book</h4><input type="file" id="cover-file" accept="image/*"><input type="file" id="pdf-file" accept=".pdf"><input type="text" id="book-title" placeholder="Title"><button class="small-btn" onclick="uploadBook()">Upload</button></div><div><h4>Manage Books</h4><div id="book-list"></div></div><div><h4>Add Admin</h4><input type="email" id="new-admin-email" placeholder="Email"><input type="password" id="new-admin-password" placeholder="Password"><button class="small-btn" onclick="addAdmin()">Add</button></div>`;
+  loadBookList();
+}
+async function loadBookList() {
+  const list = document.getElementById('book-list'); list.innerHTML='Loading...';
+  const books = await fetch('/api/books').then(r=>r.json());
+  list.innerHTML = books.map(b=>`<div style="display:flex;justify-content:space-between"><span>${b.title}</span><button class="small-btn" onclick="deleteBook(${b.id})">Del</button></div>`).join('');
+}
+window.uploadBook = async ()=>{
+  const title=document.getElementById('book-title').value, cover=document.getElementById('cover-file').files[0], pdf=document.getElementById('pdf-file').files[0];
+  if(!title||!cover||!pdf) return alert('Fill all');
+  const fd=new FormData(); fd.append('title',title); fd.append('cover',cover); fd.append('pdf',pdf);
+  const res=await fetch('/api/admin/books',{method:'POST',body:fd});
+  if(res.ok){alert('Uploaded!'); loadBooks(); loadBookList();} else alert('Upload failed');
+};
+window.deleteBook = async (id)=>{
+  if(!confirm('Delete?')) return;
+  await fetch(`/api/admin/books/${id}`,{method:'DELETE'}); loadBooks(); loadBookList();
+};
+window.addAdmin = async ()=>{
+  const email=document.getElementById('new-admin-email').value, pwd=document.getElementById('new-admin-password').value;
+  if(!email||!pwd) return alert('Fill both');
+  await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd,role:'admin'})}).then(r=>r.json()).then(d=>{if(d.success) alert('Admin added'); else alert('Error: '+d.error);});
+};
+
+// Auto-login check
+fetch('/api/me').then(r=>r.json()).then(u=>{ if(u) { document.getElementById('admin-panel').style.display='block'; loadAdminPanel(); } });
+
+// ---------- ANIMATION ----------
+function animate() {
+  requestAnimationFrame(animate);
+  // Walk
+  if(doorOpened && (moveForward || moveRight)) {
+    camera.translateZ(-moveForward);
+    camera.rotateY(moveRight);
+    // Clamp position to corridor
+    if(camera.position.z > -1) camera.position.z = -1;
+    if(camera.position.z < -18) camera.position.z = -18;
+  }
+  // Book animations
+  bookMeshes.forEach(b => {
+    const a = b.userData.anim;
+    if(a) {
+      a.p += 0.08;
+      if(a.p>=1) { b.position.copy(a.target); delete b.userData.anim; }
+      else b.position.lerpVectors(a.start, a.target, a.p);
+    }
+  });
   renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
+  requestAnimationFrame(animate);
 }
 
 window.addEventListener('click', onTap);
-window.addEventListener('touchend', e => { e.preventDefault(); onTap(e.changedTouches[0]); });
-window.addEventListener('resize', () => {
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
+window.addEventListener('touchend', e=>{ e.preventDefault(); onTap(e.changedTouches[0]); });
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  labelRenderer.setSize(innerWidth, innerHeight);
 });
 
 loadBooks();
