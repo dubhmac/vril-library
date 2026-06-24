@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>VRIL ARCHIVE · LIBRARY OF HYPERBOREA</title>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; overflow: hidden; background: #0a0909; font-family: 'UnifrakturCook', cursive; }
+    #info { position: absolute; top: 20px; left: 20px; color: #ff00aa; font-size: 2.5vw; text-shadow: 0 0 10px #ff00aa, 0 0 20px #ff00aa; pointer-events: none; z-index: 10; }
+    #book-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; background: rgba(8,6,6,0.92); backdrop-filter: blur(15px); border: 2px solid #ff00aa; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 0 50px rgba(255,0,170,0.4); color: #fff; text-align: center; }
+    #book-modal h2 { font-family: 'UnifrakturCook', cursive; font-size: 32px; color: #ff00aa; text-shadow: 0 0 10px #ff00aa, 0 0 20px #ff00aa; margin: 8px 0; word-break: break-word; }
+    #book-modal img { max-height: 200px; border-radius: 8px; margin-bottom: 12px; }
+    .btn { display: block; width: 100%; padding: 12px; margin: 6px 0; border: none; border-radius: 6px; font-family: 'UnifrakturCook', cursive; font-size: 22px; cursor: pointer; transition: 0.2s; }
+    .btn-dl { background: #ff00aa; color: #000; box-shadow: 0 0 15px #ff00aa; }
+    .btn-read { background: #00f0ff; color: #000; box-shadow: 0 0 15px #00f0ff; }
+    .btn-tip { background: rgba(255,255,255,0.1); border: 1px solid #ff00aa; color: #ff00aa; text-shadow: 0 0 8px #ff00aa; }
+    .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+    #close-modal { position: absolute; top: 8px; right: 12px; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
+    #admin-panel { display: none; position: fixed; top: 10px; right: 10px; z-index: 200; background: rgba(0,0,0,0.9); padding: 12px; border: 1px solid #ff00aa; border-radius: 8px; max-width: 320px; color: #fff; font-family: sans-serif; }
+    #admin-panel input, #admin-panel button { display: block; width: 100%; margin: 4px 0; padding: 6px; font-size: 14px; }
+    #admin-panel h3 { margin: 4px 0; color: #ff00aa; }
+    .small-btn { font-size: 12px; padding: 4px; background: #ff00aa; color: #000; border: none; cursor: pointer; }
+    #login-btn, #logout-btn { cursor: pointer; }
+    @media (max-width: 600px) { #info { font-size: 5vw; } #admin-panel { width: 90%; } }
+  </style>
+</head>
+<body>
+  <div id="info">VRIL ARCHIVE</div>
+  <button id="login-btn" style="position:absolute;top:10px;right:10px;z-index:201;background:#ff00aa;color:#000;border:none;padding:6px 12px;font-family:monospace;cursor:pointer;" onclick="showLogin()">LOGIN</button>
+  <div id="admin-panel">
+    <h3>ADMIN</h3>
+    <div id="admin-content"></div>
+    <button id="logout-btn" class="small-btn" onclick="logout()">LOGOUT</button>
+  </div>
+
+  <div id="book-modal">
+    <button id="close-modal" onclick="closeModal()">✕</button>
+    <img id="modal-cover" src="" alt="">
+    <h2 id="modal-title"></h2>
+    <button class="btn btn-read" id="modal-read">READ</button>
+    <button class="btn btn-dl" id="modal-dl">DOWNLOAD</button>
+    <button class="btn btn-tip" id="modal-tip">BUY ME A COFFEE</button>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    const tipLink = 'https://ko-fi.com/yourhandle'; // ← change to your tip link
+
+    let BOOKS = [];
+    async function loadBooks() {
+      const res = await fetch('/api/books');
+      BOOKS = await res.json();
+      buildLibrary();
+    }
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0909);
+    scene.fog = new THREE.Fog(0x0a0909, 5, 25);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 50);
+    camera.position.set(0, 1.5, 8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.minDistance = 3;
+    controls.maxDistance = 12;
+    controls.target.set(0, 1.5, 0);
+    controls.update();
+
+    scene.add(new THREE.AmbientLight(0x331133));
+    const torchLight = new THREE.PointLight(0xff6600, 2, 15);
+    torchLight.position.set(0, 3, -4);
+    scene.add(torchLight);
+    const torchLight2 = new THREE.PointLight(0xff6600, 2, 15);
+    torchLight2.position.set(0, 3, 4);
+    scene.add(torchLight2);
+    const neonLight = new THREE.PointLight(0xff00aa, 1.5, 10);
+    neonLight.position.set(0, 1.5, 0);
+    scene.add(neonLight);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const shelfHeight = 3;
+    const booksPerShelf = 8;
+    const shelfWidth = booksPerShelf * 0.65;
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, shelfHeight + 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x2b1b17, roughness: 0.8 }));
+    leftWall.position.set(-shelfWidth/2 - 0.5, shelfHeight/2, 0);
+    leftWall.castShadow = leftWall.receiveShadow = true;
+    scene.add(leftWall);
+
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, shelfHeight + 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x2b1b17, roughness: 0.8 }));
+    rightWall.position.set(shelfWidth/2 + 0.5, shelfHeight/2, 0);
+    rightWall.castShadow = rightWall.receiveShadow = true;
+    scene.add(rightWall);
+
+    function createShelf(x, z) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(shelfWidth, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x4a2c2a, roughness: 0.7 }));
+      shelf.position.set(x, 0.8, z);
+      shelf.castShadow = shelf.receiveShadow = true;
+      scene.add(shelf);
+      const shelf2 = shelf.clone(); shelf2.position.set(x, 1.8, z); scene.add(shelf2);
+      const shelf3 = shelf.clone(); shelf3.position.set(x, 2.8, z); scene.add(shelf3);
+    }
+
+    for (let z = -3.5; z <= 3.5; z += 1.5) {
+      createShelf(-shelfWidth/2 - 0.2, z);
+      createShelf(shelfWidth/2 + 0.2, z);
+    }
+
+    let bookMeshes = [];
+    const bookDataMap = new Map();
+
+    function buildLibrary() {
+      bookMeshes.forEach(b => scene.remove(b));
+      bookMeshes = [];
+      bookDataMap.clear();
+
+      const textureLoader = new THREE.TextureLoader();
+
+      BOOKS.forEach((book, i) => {
+        const shelfX = i % 2 === 0 ? -shelfWidth/2 - 0.2 : shelfWidth/2 + 0.2;
+        const row = Math.floor(i / 2) % 3;
+        const col = Math.floor(i / 6);
+        const z = -3.5 + col * 1.5;
+        const y = 0.8 + row * 1.0;
+        const bookWidth = 0.5, bookHeight = 0.7, bookThickness = 0.05 + Math.random() * 0.1;
+
+        const coverMat = new THREE.MeshStandardMaterial({ roughness: 0.4, map: textureLoader.load(book.cover) });
+        const spineMat = new THREE.MeshStandardMaterial({ color: 0x1a0a0a, roughness: 0.6 });
+
+        const bookGroup = new THREE.Group();
+        bookGroup.add(new THREE.Mesh(new THREE.BoxGeometry(bookWidth, bookHeight, 0.02), coverMat)).position.z = bookThickness/2;
+        bookGroup.add(new THREE.Mesh(new THREE.BoxGeometry(bookWidth, bookHeight, 0.02), spineMat)).position.z = -bookThickness/2;
+        bookGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, bookHeight, bookThickness), spineMat)).position.x = -bookWidth/2;
+        bookGroup.add(new THREE.Mesh(new THREE.BoxGeometry(bookWidth-0.05, bookHeight-0.05, bookThickness-0.04), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.5 })));
+
+        bookGroup.position.set(shelfX, y, z);
+        bookGroup.rotation.y = shelfX > 0 ? -Math.PI/2 : Math.PI/2;
+        bookGroup.castShadow = bookGroup.receiveShadow = true;
+
+        const labelDiv = document.createElement('div');
+        labelDiv.textContent = book.title;
+        labelDiv.style.color = '#ff00aa';
+        labelDiv.style.fontFamily = 'UnifrakturCook, cursive';
+        labelDiv.style.fontSize = '12px';
+        labelDiv.style.textShadow = '0 0 6px #ff00aa';
+        const label = new CSS2DObject(labelDiv);
+        label.position.set(0, bookHeight/2 + 0.2, 0);
+        bookGroup.add(label);
+
+        scene.add(bookGroup);
+        bookMeshes.push(bookGroup);
+        bookDataMap.set(bookGroup, book);
+        bookGroup.userData.origPos = bookGroup.position.clone();
+      });
+    }
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let selectedBook = null;
+
+    function onClick(event) {
+      mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+      mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(bookMeshes, true);
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !bookDataMap.has(obj)) obj = obj.parent;
+        if (obj && bookDataMap.has(obj)) {
+          const group = obj;
+          const book = bookDataMap.get(group);
+          if (group !== selectedBook) {
+            if (selectedBook) animateBack(selectedBook);
+            selectedBook = group;
+            animateOut(group);
+            showBookModal(book);
+          }
+          return;
+        }
+      }
+      if (selectedBook) {
+        animateBack(selectedBook);
+        selectedBook = null;
+        closeModal();
+      }
+    }
+
+    function animateOut(group) {
+      group.userData.animation = {
+        target: group.userData.origPos.clone().add(new THREE.Vector3(group.position.x > 0 ? -0.3 : 0.3, 0, 0)),
+        start: group.position.clone(),
+        progress: 0
+      };
+    }
+    function animateBack(group) {
+      group.userData.animation = {
+        target: group.userData.origPos.clone(),
+        start: group.position.clone(),
+        progress: 0
+      };
+    }
+
+    function showBookModal(book) {
+      document.getElementById('modal-cover').src = book.cover;
+      document.getElementById('modal-title').textContent = book.title;
+      document.getElementById('book-modal').style.display = 'block';
+      document.getElementById('modal-dl').onclick = () => {
+        const a = document.createElement('a');
+        a.href = book.pdf;
+        a.download = book.title + '.pdf';
+        a.click();
+        window.open(tipLink, '_blank');
+      };
+      document.getElementById('modal-read').onclick = () => window.open(book.pdf, '_blank');
+      document.getElementById('modal-tip').onclick = () => window.open(tipLink, '_blank');
+    }
+
+    window.closeModal = function() {
+      document.getElementById('book-modal').style.display = 'none';
+      if (selectedBook) { animateBack(selectedBook); selectedBook = null; }
+    };
+
+    function animate() {
+      requestAnimationFrame(animate);
+      bookMeshes.forEach(book => {
+        const anim = book.userData.animation;
+        if (anim) {
+          anim.progress += 0.08;
+          if (anim.progress >= 1) {
+            book.position.copy(anim.target);
+            delete book.userData.animation;
+          } else {
+            book.position.lerpVectors(anim.start, anim.target, anim.progress);
+          }
+        }
+      });
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
+
+    // Admin login/logout
+    let currentUser = null;
+    window.showLogin = function() {
+      const email = prompt('Admin email:');
+      const password = prompt('Password:');
+      if (email && password) {
+        fetch('/api/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email, password })
+        }).then(r => r.json()).then(data => {
+          if (data.success) {
+            currentUser = { email };
+            document.getElementById('admin-panel').style.display = 'block';
+            document.getElementById('login-btn').style.display = 'none';
+            loadAdminPanel();
+          } else alert('Login failed');
+        });
+      }
+    };
+    window.logout = function() {
+      fetch('/api/logout', { method: 'POST' }).then(() => {
+        currentUser = null;
+        document.getElementById('admin-panel').style.display = 'none';
+        document.getElementById('login-btn').style.display = 'block';
+      });
+    };
+
+    async function loadAdminPanel() {
+      const container = document.getElementById('admin-content');
+      container.innerHTML = `
+        <div class="section">
+          <h4>Upload Book</h4>
+          <input type="file" id="cover-file" accept="image/*">
+          <input type="file" id="pdf-file" accept=".pdf">
+          <input type="text" id="book-title" placeholder="Title">
+          <button class="small-btn" onclick="uploadBook()">Upload</button>
+        </div>
+        <div class="section">
+          <h4>Manage Books</h4>
+          <div id="book-list"></div>
+        </div>
+        <div class="section">
+          <h4>Add Admin</h4>
+          <input type="email" id="new-admin-email" placeholder="Email">
+          <input type="password" id="new-admin-password" placeholder="Password">
+          <button class="small-btn" onclick="addAdmin()">Add</button>
+        </div>
+      `;
+      loadBookList();
+    }
+
+    async function loadBookList() {
+      const list = document.getElementById('book-list');
+      list.innerHTML = 'Loading...';
+      const books = await fetch('/api/books').then(r => r.json());
+      list.innerHTML = books.map(b => `
+        <div style="margin:4px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span>${b.title}</span>
+          <button class="small-btn" onclick="deleteBook(${b.id})">Del</button>
+        </div>
+      `).join('');
+    }
+
+    window.uploadBook = async function() {
+      const title = document.getElementById('book-title').value;
+      const cover = document.getElementById('cover-file').files[0];
+      const pdf = document.getElementById('pdf-file').files[0];
+      if (!title || !cover || !pdf) return alert('Fill all fields');
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('cover', cover);
+      formData.append('pdf', pdf);
+      const res = await fetch('/api/admin/books', { method: 'POST', body: formData });
+      if (res.ok) {
+        alert('Uploaded!');
+        loadBooks();
+        loadBookList();
+      } else alert('Upload failed');
+    };
+
+    window.deleteBook = async function(id) {
+      if (!confirm('Delete this book?')) return;
+      await fetch(`/api/admin/books/${id}`, { method: 'DELETE' });
+      loadBooks();
+      loadBookList();
+    };
+
+    window.addAdmin = async function() {
+      const email = document.getElementById('new-admin-email').value;
+      const password = document.getElementById('new-admin-password').value;
+      if (!email || !password) return alert('Fill both fields');
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ email, password, role: 'admin' })
+      }).then(r => r.json()).then(d => {
+        if (d.success) alert('Admin added');
+        else alert('Error: ' + d.error);
+      });
+    };
+
+    // Auto-login check
+    fetch('/api/me').then(r => r.json()).then(u => {
+      if (u) {
+        currentUser = u;
+        document.getElementById('login-btn').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        loadAdminPanel();
+      }
+    });
+
+    window.addEventListener('click', onClick);
+    window.addEventListener('touchend', (e) => { e.preventDefault(); onClick(e.changedTouches[0]); });
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    loadBooks();
+    animate();
+  </script>
+</body>
+</html>
